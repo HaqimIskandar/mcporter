@@ -61,6 +61,7 @@ class KeepAliveRuntime implements Runtime {
           server,
           includeSchema: options?.includeSchema,
           autoAuthorize: options?.autoAuthorize,
+          allowCachedAuth: options?.allowCachedAuth ?? true,
         })
       )) as Awaited<ReturnType<Runtime['listTools']>>;
     }
@@ -75,7 +76,6 @@ class KeepAliveRuntime implements Runtime {
           tool: toolName,
           args: options?.args,
           timeoutMs: options?.timeoutMs,
-          allowCachedAuth: options?.allowCachedAuth ?? true,
         })
       );
     }

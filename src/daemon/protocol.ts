@@ -28,13 +28,13 @@ export interface CallToolParams {
   readonly tool: string;
   readonly args?: Record<string, unknown>;
   readonly timeoutMs?: number;
-  readonly allowCachedAuth?: boolean;
 }
 
 export interface ListToolsParams {
   readonly server: string;
   readonly includeSchema?: boolean;
   readonly autoAuthorize?: boolean;
+  readonly allowCachedAuth?: boolean;
 }
 
 export interface ListResourcesParams {
