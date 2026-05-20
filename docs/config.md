@@ -241,6 +241,8 @@ Server definition fields (subset of what `RawEntrySchema` accepts):
 mcporter normalizes headers to include `Accept: application/json, text/event-stream` automatically, matching the runtime’s streaming expectations.
 String-valued config fields support `${VAR}` and `${VAR:-fallback}` placeholders. Secret-bearing `headers`, `env`, and bearer-token placeholders are preserved in `config get`/`config list` output and resolved only when the transport runs; `*Env` fields name environment variables and are not expanded.
 
+Top-level `daemonIdleTimeoutMs` (or `daemon_idle_timeout_ms`) shuts down the keep-alive daemon after that many milliseconds without daemon requests. Per-server `lifecycle.idleTimeoutMs` still controls when individual keep-alive transports are closed.
+
 ### Refreshable Bearer Tokens
 
 Use `auth: "refreshable_bearer"` when you already seeded OAuth tokens with `mcporter vault set <server>` or `tokenCacheDir`, and the server should receive only a fresh bearer token at runtime. HTTP servers get `Authorization: Bearer <token>` when no authorization header is already configured. STDIO servers require `refresh.accessTokenEnv`; mcporter refreshes before spawning the process and injects that env var with the raw access token.

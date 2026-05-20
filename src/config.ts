@@ -105,6 +105,23 @@ export async function loadServerDefinitions(options: LoadConfigOptions = {}): Pr
   return servers;
 }
 
+export interface DaemonConfig {
+  readonly idleTimeoutMs?: number;
+}
+
+export async function loadDaemonConfig(options: LoadConfigOptions = {}): Promise<DaemonConfig> {
+  const rootDir = options.rootDir ?? process.cwd();
+  const layers = await loadConfigLayers(options, rootDir);
+  let idleTimeoutMs: number | undefined;
+  for (const layer of layers) {
+    const raw = layer.config.daemonIdleTimeoutMs ?? layer.config.daemon_idle_timeout_ms;
+    if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+      idleTimeoutMs = Math.trunc(raw);
+    }
+  }
+  return { idleTimeoutMs };
+}
+
 export async function loadRawConfig(
   options: LoadConfigOptions = {}
 ): Promise<{ config: RawConfig; path: string; explicit: boolean }> {

@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { loadServerDefinitions } from '../src/config.js';
+import { loadDaemonConfig, loadServerDefinitions } from '../src/config.js';
 
 const TEMP_DIR = path.join(os.tmpdir(), 'mcporter-config-test');
 
@@ -157,6 +157,27 @@ describe('config normalization', () => {
     expect(servers.find((entry) => entry.name === 'camel')?.httpFetch).toBe('node-http1');
     expect(servers.find((entry) => entry.name === 'snake')?.httpFetch).toBe('node-http1');
     expect(servers.find((entry) => entry.name === 'defaulted')?.httpFetch).toBe('default');
+  });
+
+  it('loads daemon idle timeout from config layers', async () => {
+    const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcporter-daemon-idle-'));
+    const configDir = path.join(rootDir, 'config');
+    const configPath = path.join(configDir, 'mcporter.json');
+    await fs.mkdir(configDir, { recursive: true });
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(
+        {
+          daemonIdleTimeoutMs: 12_345,
+          mcpServers: {},
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+
+    await expect(loadDaemonConfig({ rootDir })).resolves.toEqual({ idleTimeoutMs: 12_345 });
   });
 
   it('normalizes refreshable bearer config for stdio servers', async () => {

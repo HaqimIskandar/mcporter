@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
-import type { ServerDefinition } from '../config.js';
+import { loadDaemonConfig, type ServerDefinition } from '../config.js';
 import { writeJsonFile } from '../fs-json.js';
 import { isKeepAliveServer } from '../lifecycle.js';
 import { createRuntime, type Runtime } from '../runtime.js';
@@ -26,9 +26,11 @@ import type {
 } from './protocol.js';
 import {
   buildErrorResponse,
+  daemonIdleWatcherInterval,
   ensureManaged,
   evictIdleServers,
   markActivity,
+  shouldShutdownDaemonForIdle,
   type ServerActivity,
 } from './request-utils.js';
 
@@ -45,6 +47,10 @@ interface DaemonHostOptions {
 
 export async function runDaemonHost(options: DaemonHostOptions): Promise<void> {
   const configLayers = await collectConfigLayers({
+    configPath: options.configExplicit ? options.configPath : undefined,
+    rootDir: options.rootDir,
+  });
+  const daemonConfig = await loadDaemonConfig({
     configPath: options.configExplicit ? options.configPath : undefined,
     rootDir: options.rootDir,
   });
@@ -86,9 +92,37 @@ export async function runDaemonHost(options: DaemonHostOptions): Promise<void> {
     activity.set(definition.name, { connected: false });
   }
 
-  const idleWatcher = setInterval(() => {
-    void evictIdleServers(runtime, managedServers, activity);
-  }, 30_000);
+  let shuttingDown = false;
+  let idleWatcher: NodeJS.Timeout | undefined;
+  const shutdown = async (): Promise<void> => {
+    if (shuttingDown) {
+      return;
+    }
+    shuttingDown = true;
+    logEvent(logContext, 'Shutting down daemon host.');
+    if (idleWatcher) {
+      clearInterval(idleWatcher);
+    }
+    server.close();
+    await runtime.close().catch(() => {});
+    await disposeLogContext(logContext).catch(() => {});
+    await cleanupArtifacts(options);
+    process.exit(0);
+  };
+
+  let lastDaemonActivityAt = Date.now();
+  let activeDaemonRequests = 0;
+  idleWatcher = setInterval(() => {
+    void (async () => {
+      await evictIdleServers(runtime, managedServers, activity);
+      if (
+        shouldShutdownDaemonForIdle(lastDaemonActivityAt, Date.now(), daemonConfig.idleTimeoutMs, activeDaemonRequests)
+      ) {
+        logEvent(logContext, 'Daemon idle timeout reached.');
+        await shutdown();
+      }
+    })();
+  }, daemonIdleWatcherInterval(daemonConfig.idleTimeoutMs));
   idleWatcher.unref();
 
   logEvent(logContext, 'Daemon host started.');
@@ -115,6 +149,8 @@ export async function runDaemonHost(options: DaemonHostOptions): Promise<void> {
         return;
       }
       handled = true;
+      lastDaemonActivityAt = Date.now();
+      activeDaemonRequests += 1;
       void handleSocketRequest(
         trimmed,
         socket,
@@ -132,7 +168,10 @@ export async function runDaemonHost(options: DaemonHostOptions): Promise<void> {
         logContext,
         shutdown,
         parsedRequest
-      );
+      ).finally(() => {
+        activeDaemonRequests -= 1;
+        lastDaemonActivityAt = Date.now();
+      });
     };
     socket.on('data', (chunk) => {
       buffer += chunk;
@@ -166,21 +205,6 @@ export async function runDaemonHost(options: DaemonHostOptions): Promise<void> {
     logPath: options.logPath ?? null,
     configMtimeMs,
   });
-
-  let shuttingDown = false;
-  const shutdown = async (): Promise<void> => {
-    if (shuttingDown) {
-      return;
-    }
-    shuttingDown = true;
-    logEvent(logContext, 'Shutting down daemon host.');
-    clearInterval(idleWatcher);
-    server.close();
-    await runtime.close().catch(() => {});
-    await disposeLogContext(logContext).catch(() => {});
-    await cleanupArtifacts(options);
-    process.exit(0);
-  };
 
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);

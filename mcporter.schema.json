@@ -359,6 +359,18 @@
       },
       "description": "Map of server names to their configurations"
     },
+    "daemonIdleTimeoutMs": {
+      "description": "Idle timeout in milliseconds before shutting down an inactive daemon",
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "daemon_idle_timeout_ms": {
+      "description": "Idle timeout in milliseconds before shutting down an inactive daemon",
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
     "imports": {
       "description": "Editor configurations to import servers from. Omit to use defaults, or set to [] to disable imports",
       "type": "array",

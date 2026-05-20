@@ -175,6 +175,18 @@ export const RawEntrySchema = z
 export const RawConfigSchema = z
   .object({
     mcpServers: z.record(z.string(), RawEntrySchema).describe('Map of server names to their configurations'),
+    daemonIdleTimeoutMs: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe('Idle timeout in milliseconds before shutting down an inactive daemon'),
+    daemon_idle_timeout_ms: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe('Idle timeout in milliseconds before shutting down an inactive daemon'),
     imports: z
       .array(ImportKindSchema)
       .optional()
