@@ -28,6 +28,7 @@ export interface CallToolParams {
   readonly tool: string;
   readonly args?: Record<string, unknown>;
   readonly timeoutMs?: number;
+  readonly allowCachedAuth?: boolean;
 }
 
 export interface ListToolsParams {

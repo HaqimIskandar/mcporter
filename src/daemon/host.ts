@@ -302,6 +302,7 @@ async function processRequest(
           const result = await runtime.callTool(params.server, params.tool, {
             args: params.args ?? {},
             timeoutMs: params.timeoutMs,
+            allowCachedAuth: params.allowCachedAuth ?? true,
           });
           markActivity(params.server, activity);
           if (loggable) {
@@ -327,6 +328,7 @@ async function processRequest(
           const result = await runtime.listTools(params.server, {
             includeSchema: params.includeSchema,
             autoAuthorize: params.autoAuthorize,
+            allowCachedAuth: true,
           });
           markActivity(params.server, activity);
           if (loggable) {

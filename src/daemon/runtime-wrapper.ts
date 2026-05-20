@@ -75,6 +75,7 @@ class KeepAliveRuntime implements Runtime {
           tool: toolName,
           args: options?.args,
           timeoutMs: options?.timeoutMs,
+          allowCachedAuth: options?.allowCachedAuth ?? true,
         })
       );
     }
