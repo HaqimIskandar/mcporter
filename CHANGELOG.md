@@ -6,6 +6,10 @@
 
 - Recover cleanly from renamed OAuth server entries, invalid refresh tokens, and stale dynamic client registrations without reusing unrelated same-URL credentials.
 
+### CLI
+
+- Reconcile keep-alive daemon metadata with the responding process and serialize daemon startup across parallel clients, preventing duplicate orphaned daemons. (Issue #191, thanks @dtmsyi)
+
 ## [0.11.3] - 2026-05-21
 
 - Fall back to `~/.mcporter/mcporter.json[c]` when `XDG_CONFIG_HOME` points at an empty mcporter config directory, preventing embedders from accidentally hiding the user server registry. (Issue #184, thanks @ChrisBot2026)

@@ -90,7 +90,7 @@ describe('daemon client', () => {
     }
   });
 
-  it('skips status preflight when daemon metadata is fresh', async () => {
+  it('verifies daemon pid before trusting fresh metadata', async () => {
     const tmpDir = await makeShortTempDir('mcpd-fresh');
     const originalDir = process.env.MCPORTER_DAEMON_DIR;
     process.env.MCPORTER_DAEMON_DIR = tmpDir;
@@ -121,7 +121,18 @@ describe('daemon client', () => {
         buffer += chunk;
         const request = JSON.parse(buffer) as { id: string; method: string };
         methods.push(request.method);
-        socket.end(JSON.stringify({ id: request.id, ok: true, result: { tools: [] } }));
+        const result =
+          request.method === 'status'
+            ? {
+                pid: process.pid,
+                startedAt: Date.now(),
+                configPath,
+                configLayers: [{ path: configPath, mtimeMs: configStats.mtimeMs }],
+                socketPath,
+                servers: [],
+              }
+            : { tools: [] };
+        socket.end(JSON.stringify({ id: request.id, ok: true, result }));
       });
     });
     await new Promise<void>((resolve, reject) => {
@@ -134,7 +145,7 @@ describe('daemon client', () => {
     try {
       const client = new DaemonClient({ configPath, configExplicit: true });
       await client.listTools({ server: 'warm' });
-      expect(methods).toEqual(['listTools']);
+      expect(methods).toEqual(['status', 'listTools']);
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
       await fs.unlink(socketPath).catch(() => {});
