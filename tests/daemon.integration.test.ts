@@ -77,14 +77,20 @@ describeDaemon('daemon keep-alive integration', () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcporter-daemon-e2e-'));
     const scriptPath = path.join(tempDir, 'daemon-server.mjs');
     const configPath = path.join(tempDir, 'mcporter.daemon.json');
+    const launchLogPath = path.join(tempDir, 'launches.log');
 
     const stdioServerSource = `import { randomUUID } from 'node:crypto';
+import fs from 'node:fs/promises';
 import { McpServer } from '${MCP_SERVER_MODULE}';
 import { StdioServerTransport } from '${STDIO_SERVER_MODULE}';
 import { z } from '${ZOD_MODULE}';
 
 const instanceId = randomUUID();
 let counter = 0;
+
+if (process.env.MCPORTER_TEST_LAUNCH_LOG) {
+  await fs.appendFile(process.env.MCPORTER_TEST_LAUNCH_LOG, instanceId + '\\n', 'utf8');
+}
 
 const server = new McpServer({ name: 'daemon-e2e', version: '1.0.0' });
 server.registerTool('next_value', {
@@ -135,11 +141,15 @@ await new Promise((resolve) => {
       MCPORTER_DAEMON_LOG: '1',
       MCPORTER_DAEMON_LOG_PATH: logPath,
       MCPORTER_DAEMON_LOG_SERVERS: 'daemon-e2e',
+      MCPORTER_TEST_LAUNCH_LOG: launchLogPath,
     };
     const cli = (args: string[]) => runCli(args, configPath, cliEnv);
 
     try {
       await cli(['daemon', 'stop']);
+
+      await cli(['list', 'daemon-e2e', '--json']);
+      await cli(['list', 'daemon-e2e', '--json']);
 
       const first = await cli(['call', 'daemon-e2e.next_value', '--output', 'json']);
       const firstResult = parseCliJson(first.stdout);
@@ -150,7 +160,12 @@ await new Promise((resolve) => {
       expect(secondResult.count).toBe(2);
       expect(secondResult.instanceId).toBe(firstResult.instanceId);
 
+      const launchLog = await readFileWithRetries(launchLogPath);
+      expect(launchLog.trim().split('\n')).toEqual([firstResult.instanceId]);
+
       const logContents = await readFileWithRetries(logPath);
+      expect(logContents).toContain('listTools start server=daemon-e2e');
+      expect(logContents).toContain('listTools success server=daemon-e2e');
       expect(logContents).toContain('callTool start server=daemon-e2e tool=next_value');
       expect(logContents).toContain('callTool success server=daemon-e2e tool=next_value');
     } finally {

@@ -59,6 +59,40 @@ describe('daemon host request handling', () => {
     });
   });
 
+  it('keeps stdio keep-alive listTools requests reusable when callers disable auto auth', async () => {
+    const runtime = createRuntimeDouble();
+    const managedServers = createManagedServers();
+
+    await __testProcessRequest('', runtime as unknown as Runtime, managedServers, new Map(), metadata, logContext, {
+      id: 'list',
+      method: 'listTools',
+      params: { server: 'local', includeSchema: true, autoAuthorize: false, allowCachedAuth: true },
+    });
+
+    expect(runtime.listTools).toHaveBeenCalledWith('local', {
+      includeSchema: true,
+      autoAuthorize: undefined,
+      allowCachedAuth: true,
+    });
+  });
+
+  it('preserves HTTP listTools auto-auth opt out on daemon requests', async () => {
+    const runtime = createRuntimeDouble();
+    const managedServers = createManagedServers();
+
+    await __testProcessRequest('', runtime as unknown as Runtime, managedServers, new Map(), metadata, logContext, {
+      id: 'list',
+      method: 'listTools',
+      params: { server: 'oauth', includeSchema: true, autoAuthorize: false, allowCachedAuth: true },
+    });
+
+    expect(runtime.listTools).toHaveBeenCalledWith('oauth', {
+      includeSchema: true,
+      autoAuthorize: false,
+      allowCachedAuth: true,
+    });
+  });
+
   it('preserves explicit listTools cached-auth opt out on daemon requests', async () => {
     const runtime = createRuntimeDouble();
     const managedServers = createManagedServers();
@@ -86,6 +120,14 @@ function createRuntimeDouble(): Pick<Runtime, 'callTool' | 'listTools'> {
 
 function createManagedServers(): Map<string, ServerDefinition> {
   return new Map([
+    [
+      'local',
+      {
+        name: 'local',
+        command: { kind: 'stdio', command: 'node', args: ['server.js'], cwd: '/tmp' },
+        lifecycle: { mode: 'keep-alive' },
+      },
+    ],
     [
       'oauth',
       {

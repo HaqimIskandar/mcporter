@@ -343,6 +343,7 @@ async function processRequest(
       case 'listTools': {
         const params = request.params as ListToolsParams;
         ensureManaged(params.server, managedServers);
+        const definition = managedServers.get(params.server)!;
         const loggable = shouldLogServer(logContext, params.server);
         if (loggable) {
           logEvent(logContext, `listTools start server=${params.server}`);
@@ -350,7 +351,7 @@ async function processRequest(
         try {
           const result = await runtime.listTools(params.server, {
             includeSchema: params.includeSchema,
-            autoAuthorize: params.autoAuthorize,
+            autoAuthorize: resolveDaemonListToolsAutoAuthorize(params, definition),
             allowCachedAuth: params.allowCachedAuth ?? true,
           });
           markActivity(params.server, activity);
@@ -474,6 +475,16 @@ async function processRequest(
       shouldShutdown: false,
     };
   }
+}
+
+function resolveDaemonListToolsAutoAuthorize(
+  params: ListToolsParams,
+  definition: ServerDefinition
+): boolean | undefined {
+  if (params.autoAuthorize === false && definition.command.kind === 'stdio') {
+    return undefined;
+  }
+  return params.autoAuthorize;
 }
 
 export async function __testProcessRequest(

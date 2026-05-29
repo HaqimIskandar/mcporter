@@ -9,6 +9,7 @@
 ### CLI
 
 - Reconcile keep-alive daemon metadata with the responding process and serialize daemon startup across parallel clients, preventing duplicate orphaned daemons. (Issue #191, thanks @dtmsyi)
+- Keep daemon-managed stdio servers warm across repeated `mcporter list` requests instead of treating non-interactive tool listing as a throwaway process. (Issue #188, thanks @robertoronderosjr)
 
 ## [0.11.3] - 2026-05-21
 
