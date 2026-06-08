@@ -1,6 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import fs from 'node:fs/promises';
+import net from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ServerDefinition } from '../src/config.js';
-import { __testProcessRequest } from '../src/daemon/host.js';
+import { __testProcessRequest, isDaemonResponding, metadataMatches } from '../src/daemon/host.js';
 import type { DaemonRequest } from '../src/daemon/protocol.js';
 import type { Runtime } from '../src/runtime.js';
 
@@ -108,6 +113,107 @@ describe('daemon host request handling', () => {
       autoAuthorize: undefined,
       allowCachedAuth: false,
     });
+  });
+});
+
+const describeUnixSocket = process.platform === 'win32' ? describe.skip : describe;
+
+describeUnixSocket('isDaemonResponding', () => {
+  const servers: net.Server[] = [];
+  const connections: net.Socket[] = [];
+  const socketPaths: string[] = [];
+
+  function socketPath(): string {
+    const p = path.join(os.tmpdir(), `mcporter-probe-${randomUUID().slice(0, 8)}.sock`);
+    socketPaths.push(p);
+    return p;
+  }
+
+  function listen(server: net.Server, p: string): Promise<void> {
+    servers.push(server);
+    server.on('connection', (socket) => connections.push(socket));
+    return new Promise((resolve) => server.listen(p, () => resolve()));
+  }
+
+  afterEach(async () => {
+    for (const socket of connections.splice(0)) {
+      socket.destroy();
+    }
+    for (const server of servers.splice(0)) {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+    for (const p of socketPaths.splice(0)) {
+      await fs.rm(p, { force: true }).catch(() => {});
+    }
+  });
+
+  function statusServer(result: Record<string, unknown>): net.Server {
+    return net.createServer((socket) => {
+      socket.on('data', () => socket.end(JSON.stringify({ id: '1', ok: true, result })));
+    });
+  }
+
+  it('returns true when the socket answers status with a matching socket and live pid', async () => {
+    const p = socketPath();
+    await listen(statusServer({ pid: process.pid, socketPath: p }), p);
+    expect(await isDaemonResponding(p)).toBe(true);
+  });
+
+  it('returns false when the socket accepts but never responds (hung daemon)', async () => {
+    const p = socketPath();
+    await listen(
+      net.createServer((socket) => socket.pause()),
+      p
+    );
+    expect(await isDaemonResponding(p)).toBe(false);
+  }, 5_000);
+
+  it('returns false when status reports a different socket (foreign listener)', async () => {
+    const p = socketPath();
+    await listen(statusServer({ pid: process.pid, socketPath: '/some/other/daemon.sock' }), p);
+    expect(await isDaemonResponding(p)).toBe(false);
+  });
+
+  it('returns false when status reports a dead pid', async () => {
+    const p = socketPath();
+    await listen(statusServer({ pid: 2_147_483_646, socketPath: p }), p);
+    expect(await isDaemonResponding(p)).toBe(false);
+  });
+
+  it('returns false when nothing is listening', async () => {
+    expect(await isDaemonResponding(socketPath())).toBe(false);
+  });
+});
+
+describe('metadataMatches', () => {
+  let metadataPath: string;
+  const live = { pid: 4321, socketPath: '/tmp/daemon.sock' };
+
+  beforeEach(async () => {
+    metadataPath = path.join(os.tmpdir(), `mcporter-meta-${randomUUID().slice(0, 8)}.json`);
+  });
+
+  afterEach(async () => {
+    await fs.rm(metadataPath, { force: true }).catch(() => {});
+  });
+
+  it('matches when pid and socket agree', async () => {
+    await fs.writeFile(metadataPath, JSON.stringify({ pid: 4321, socketPath: '/tmp/daemon.sock' }), 'utf8');
+    expect(await metadataMatches(metadataPath, live)).toBe(true);
+  });
+
+  it('does not match a different pid', async () => {
+    await fs.writeFile(metadataPath, JSON.stringify({ pid: 9999, socketPath: '/tmp/daemon.sock' }), 'utf8');
+    expect(await metadataMatches(metadataPath, live)).toBe(false);
+  });
+
+  it('does not match when metadata is missing', async () => {
+    expect(await metadataMatches(metadataPath, live)).toBe(false);
+  });
+
+  it('does not match when metadata is corrupt', async () => {
+    await fs.writeFile(metadataPath, '{ not json', 'utf8');
+    expect(await metadataMatches(metadataPath, live)).toBe(false);
   });
 });
 
