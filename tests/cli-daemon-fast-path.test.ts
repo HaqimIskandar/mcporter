@@ -89,6 +89,16 @@ describe('daemon call fast path', () => {
     );
   });
 
+  it('leaves CloudBase calls on the config-aware runtime path', async () => {
+    mocks.createRuntime.mockRejectedValue(new Error('runtime path used'));
+    const { runCli } = await import('../src/cli.js');
+
+    await expect(runCli(['call', 'cloudbase.auth', '--output', 'json'])).rejects.toThrow('runtime path used');
+
+    expect(mocks.createRuntime).toHaveBeenCalled();
+    expect(mocks.daemonCallTool).not.toHaveBeenCalled();
+  });
+
   it.each(['MCPORTER_RECORD', 'MCPORTER_REPLAY'] as const)(
     'bypasses the daemon fast path while %s is active',
     async (modeEnv) => {
