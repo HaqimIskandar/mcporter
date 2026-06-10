@@ -1,6 +1,6 @@
 # mcporter Changelog
 
-## [0.11.4] - Unreleased
+## [0.12.0] - 2026-06-10
 
 ### OAuth
 
