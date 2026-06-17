@@ -58,10 +58,16 @@ export async function loadServerDefinitions(options: LoadConfigOptions = {}): Pr
           continue;
         }
         for (const [name, rawEntry] of entries) {
+          const source: ServerSource = { kind: 'import', path: resolved, importKind };
+          const baseDir = path.dirname(resolved);
+          try {
+            normalizeServerEntry(name, rawEntry, baseDir, source, [source]);
+          } catch {
+            continue;
+          }
           if (merged.has(name)) {
             continue;
           }
-          const source: ServerSource = { kind: 'import', path: resolved, importKind };
           const existing = merged.get(name);
           // Keep the first-seen source as canonical while tracking all alternates
           if (existing) {
@@ -70,7 +76,7 @@ export async function loadServerDefinitions(options: LoadConfigOptions = {}): Pr
           }
           merged.set(name, {
             raw: rawEntry,
-            baseDir: path.dirname(resolved),
+            baseDir,
             source,
             sources: [source],
           });
@@ -99,7 +105,13 @@ export async function loadServerDefinitions(options: LoadConfigOptions = {}): Pr
 
   const servers: ServerDefinition[] = [];
   for (const [name, { raw, baseDir: entryBaseDir, source, sources }] of merged) {
-    servers.push(normalizeServerEntry(name, raw, entryBaseDir, source, sources));
+    try {
+      servers.push(normalizeServerEntry(name, raw, entryBaseDir, source, sources));
+    } catch (error) {
+      if (source.kind !== 'import') {
+        throw error;
+      }
+    }
   }
 
   return servers;
