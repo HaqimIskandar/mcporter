@@ -1,8 +1,20 @@
 # mcporter Changelog
 
-## [0.12.1] - Unreleased
+## [0.12.1] - 2026-06-18
 
 - Add `key=@path` and `--key @path` call arguments for exact UTF-8 file values, with `@@` escaping for literal leading `@`. (Issue #212, thanks @andr-ec)
+
+### Config
+
+- Skip imported server entries with unresolvable editor-specific environment placeholders, and allow later valid duplicates to take effect without relaxing validation for local config. (PR #209, thanks @Loveacup)
+
+### OAuth
+
+- Treat corrupt cached OAuth tokens and client metadata as missing so connections can re-authenticate, while keeping corrupt callback state data fail-closed. (Issue #207, thanks @KrasimirKralev)
+
+### Tooling / Dependencies
+
+- Refresh development dependencies and security overrides, including Vite, esbuild, and Hono.
 
 ## [0.12.0] - 2026-06-10
 
