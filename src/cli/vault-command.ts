@@ -121,10 +121,42 @@ function validateVaultPayload(value: unknown): VaultPayload {
   ) {
     throw new CliUsageError("Vault payload 'clientInfo' must be an object.");
   }
+  validateOAuthTokens(record.tokens as Record<string, unknown>);
+  if (record.clientInfo !== undefined) {
+    validateOAuthClientInfo(record.clientInfo as Record<string, unknown>);
+  }
   return {
     tokens: record.tokens as OAuthTokens,
     ...(record.clientInfo ? { clientInfo: record.clientInfo as OAuthClientInformationMixed } : {}),
   };
+}
+
+function validateOAuthTokens(tokens: Record<string, unknown>): void {
+  if (typeof tokens.access_token !== 'string' || tokens.access_token.length === 0) {
+    throw new CliUsageError('Vault payload tokens.access_token must be a non-empty string.');
+  }
+  if (typeof tokens.token_type !== 'string' || tokens.token_type.length === 0) {
+    throw new CliUsageError('Vault payload tokens.token_type must be a non-empty string.');
+  }
+  for (const key of ['refresh_token', 'scope'] as const) {
+    if (tokens[key] !== undefined && typeof tokens[key] !== 'string') {
+      throw new CliUsageError(`Vault payload tokens.${key} must be a string.`);
+    }
+  }
+  if (
+    tokens.expires_in !== undefined &&
+    (!Number.isFinite(tokens.expires_in) || typeof tokens.expires_in !== 'number')
+  ) {
+    throw new CliUsageError('Vault payload tokens.expires_in must be a finite number.');
+  }
+}
+
+function validateOAuthClientInfo(clientInfo: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(clientInfo)) {
+    if (value !== undefined && value !== null && typeof value !== 'string') {
+      throw new CliUsageError(`Vault payload clientInfo.${key} must be a string.`);
+    }
+  }
 }
 
 export function printVaultHelp(): void {

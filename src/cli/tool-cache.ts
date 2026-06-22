@@ -1,5 +1,5 @@
 import type { ListToolsOptions, Runtime } from '../runtime.js';
-import { buildToolMetadata, type ToolMetadata } from './generate/tools.js';
+import { buildToolMetadataList, type ToolMetadata } from './generate/tools.js';
 
 interface LoadToolMetadataOptions {
   includeSchema?: boolean;
@@ -43,7 +43,7 @@ export async function loadToolMetadata(
   };
   const promise = runtime
     .listTools(serverName, listOptions)
-    .then((tools) => tools.map((tool) => buildToolMetadata(tool)))
+    .then((tools) => buildToolMetadataList(tools, { sort: false }))
     .catch((error) => {
       cache?.delete(key);
       throw error;

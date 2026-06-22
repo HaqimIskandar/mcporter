@@ -50,6 +50,27 @@ export function buildToolMetadata(tool: ServerToolInfo): ToolMetadata {
   };
 }
 
+export function buildToolMetadataList(
+  tools: ServerToolInfo[],
+  options: { readonly sort?: boolean } = {}
+): ToolMetadata[] {
+  const result = tools.map((tool) => buildToolMetadata(tool));
+  if (options.sort !== false) {
+    result.sort((left, right) => left.tool.name.localeCompare(right.tool.name));
+  }
+  const methods = new Map<string, string>();
+  for (const entry of result) {
+    const previous = methods.get(entry.methodName);
+    if (previous) {
+      throw new Error(
+        `Generated proxy method collision '${entry.methodName}' for tools '${previous}' and '${entry.tool.name}'.`
+      );
+    }
+    methods.set(entry.methodName, entry.tool.name);
+  }
+  return result;
+}
+
 export function buildEmbeddedSchemaMap(tools: ToolMetadata[]): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const entry of tools.toSorted((left, right) => left.tool.name.localeCompare(right.tool.name))) {

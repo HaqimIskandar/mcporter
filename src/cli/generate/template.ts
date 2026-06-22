@@ -101,6 +101,7 @@ export function renderTemplate({
       tool: entry.tool,
     })
   );
+  assertUniqueGeneratedCommandNames(renderedTools);
   const toolHelp = renderedTools.map((entry) => ({
     name: entry.commandName,
     description: entry.tool.tool.description ?? '',
@@ -237,12 +238,21 @@ function parseArrayOption(value: string, itemType: 'string' | 'number' | 'boolea
 \t}
 \tconst values = value.split(',').map((entry) => entry.trim());
 \tif (itemType === 'number') {
-\t\treturn values.map((entry) => parseFloat(entry));
+\t\treturn values.map((entry) => parseFiniteNumber(entry));
 \t}
 \tif (itemType === 'boolean') {
 \t\treturn values.map((entry) => entry !== 'false');
 \t}
 \treturn values;
+}
+
+function parseFiniteNumber(value: string): number {
+\tconst trimmed = value.trim();
+\tconst parsed = Number(trimmed);
+\tif (trimmed === '' || !Number.isFinite(parsed)) {
+\t\tthrow new Error('Expected a finite number.');
+\t}
+\treturn parsed;
 }
 
 function normalizeEmbeddedServer(server: typeof embeddedServer) {
@@ -462,7 +472,9 @@ export function renderToolCommand(
             ({ option, camelCaseProp }) =>
               `{ value: cmdOpts.${camelCaseProp}, flag: ${JSON.stringify(`--${option.cliName}`)} }`
           )
-          .join(', ')}].filter((entry) => entry.value === undefined).map((entry) => entry.flag);
+          .join(
+            ', '
+          )}].filter((entry) => entry.value === undefined || (typeof entry.value === 'string' && entry.value.trim() === '')).map((entry) => entry.flag);
 \t\t\tif (missingRequired.length > 0) {
 \t\t\t\tthrow new Error('Missing required option' + (missingRequired.length === 1 ? '' : 's') + ': ' + missingRequired.join(', '));
 \t\t\t}`
@@ -549,7 +561,7 @@ export const templateTestHelpers = { computeRelativeStdioCwd };
 function optionParser(option: GeneratedOption): string | undefined {
   switch (option.type) {
     case 'number':
-      return '(value) => parseFloat(value)';
+      return '(value) => parseFiniteNumber(value)';
     case 'boolean':
       return "(value) => value !== 'false'";
     case 'object':
@@ -568,5 +580,18 @@ function optionParser(option: GeneratedOption): string | undefined {
       }
     default:
       return undefined;
+  }
+}
+
+function assertUniqueGeneratedCommandNames(tools: Array<{ commandName: string; tool: ToolMetadata }>): void {
+  const commands = new Map<string, string>();
+  for (const entry of tools) {
+    const previous = commands.get(entry.commandName);
+    if (previous) {
+      throw new Error(
+        `Generated command name collision '${entry.commandName}' for tools '${previous}' and '${entry.tool.tool.name}'.`
+      );
+    }
+    commands.set(entry.commandName, entry.tool.tool.name);
   }
 }

@@ -4,6 +4,7 @@ import {
   buildFallbackLiteral,
   buildPlaceholder,
   buildToolMetadata,
+  buildToolMetadataList,
   extractOptions,
   getDescriptorDefault,
   getDescriptorDescription,
@@ -43,6 +44,15 @@ describe('generate helpers', () => {
     if (first) {
       expect(first.required).toBe(true);
     }
+  });
+
+  it('rejects generated proxy method collisions', () => {
+    expect(() =>
+      buildToolMetadataList([
+        { name: 'some-tool', inputSchema: undefined, outputSchema: undefined },
+        { name: 'some_tool', inputSchema: undefined, outputSchema: undefined },
+      ])
+    ).toThrow(/Generated proxy method collision 'someTool'/);
   });
 
   it('extracts detailed option information', () => {

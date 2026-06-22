@@ -11,7 +11,7 @@ import { ensureInvocationDefaults, fetchTools, resolveServerDefinition } from '.
 import { resolveRuntimeKind } from './cli/generate/runtime.js';
 import { readPackageMetadata, writeTemplate } from './cli/generate/template.js';
 import type { ToolMetadata } from './cli/generate/tools.js';
-import { buildToolMetadata, toolsTestHelpers } from './cli/generate/tools.js';
+import { buildToolMetadataList, toolsTestHelpers } from './cli/generate/tools.js';
 import { type CliArtifactMetadata, serializeDefinition } from './cli-metadata.js';
 import { stableJsonStringify } from './cli/generate/stable-json.js';
 import type { ServerDefinition } from './config.js';
@@ -62,9 +62,7 @@ export async function generateCli(
       : { ...baseDefinition, description: derivedDescription };
   const embeddedDefinition = stripBuildSources(definition);
   const serializedDefinition = serializeDefinition(embeddedDefinition);
-  const toolMetadata: ToolMetadata[] = tools
-    .map((tool) => buildToolMetadata(tool))
-    .toSorted((left, right) => left.tool.name.localeCompare(right.tool.name));
+  const toolMetadata: ToolMetadata[] = buildToolMetadataList(tools);
   const generator = await readPackageMetadata();
   const baseInvocation = ensureInvocationDefaults(
     {

@@ -119,6 +119,11 @@ describe('parseCallArguments', () => {
     }
   });
 
+  it('preserves whitespace-only generic long flag values', () => {
+    const parsed = parseCallArguments(['server.tool', '--body', '   ']);
+    expect(parsed.args.body).toBe('   ');
+  });
+
   it('uses @@ to preserve a literal leading @ without reading a file', () => {
     const parsed = parseCallArguments(['server.tool', 'body=@@literal']);
     expect(parsed.args.body).toBe('@literal');

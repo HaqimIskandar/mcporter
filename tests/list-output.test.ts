@@ -137,6 +137,17 @@ describe('list output helpers', () => {
     expect(entry.authCommand).toBe(buildAuthCommandHint(definition));
   });
 
+  it('shell-quotes auth hints for stdio commands', () => {
+    const hint = buildAuthCommandHint({
+      name: 'unsafe',
+      command: { kind: 'stdio', command: 'node', args: ['server.js', '--name', "$(touch bad)'"], cwd: process.cwd() },
+      auth: 'oauth',
+      source: { kind: 'local', path: '<adhoc>' },
+    });
+    expect(hint).toContain('mcporter auth --stdio node server.js --name ');
+    expect(hint).toContain("'$(touch bad)'\\'''");
+  });
+
   it('exposes source list in JSON only when includeSources is true', () => {
     const withSources: ServerDefinition = {
       ...definition,

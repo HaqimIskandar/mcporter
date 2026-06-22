@@ -49,7 +49,7 @@ export function resolveEphemeralServer(spec: EphemeralServerSpec): EphemeralServ
       headers: __configInternals.ensureHttpAcceptHeader(spec.headers),
     };
     const canonical = spec.name ? undefined : canonicalKeepAliveName(command);
-    const name = slugify(spec.name ?? canonical ?? inferNameFromUrl(url));
+    const name = normalizeEphemeralName(spec.name ?? canonical ?? inferNameFromUrl(url));
     const lifecycle = resolveLifecycle(name, undefined, command);
     const definition: ServerDefinition = {
       name,
@@ -84,7 +84,7 @@ export function resolveEphemeralServer(spec: EphemeralServerSpec): EphemeralServ
     cwd,
   };
   const canonical = spec.name ? undefined : canonicalKeepAliveName(command);
-  const name = slugify(spec.name ?? canonical ?? inferNameFromCommand(parts));
+  const name = normalizeEphemeralName(spec.name ?? canonical ?? inferNameFromCommand(parts));
   const lifecycle = resolveLifecycle(name, undefined, command);
   const definition: ServerDefinition = {
     name,
@@ -204,6 +204,14 @@ function slugify(value: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .replace(/-{2,}/g, '-');
+}
+
+function normalizeEphemeralName(value: string): string {
+  const name = slugify(value);
+  if (!name) {
+    throw new Error('Ad-hoc server name must contain at least one letter or digit.');
+  }
+  return name;
 }
 
 export function splitCommandLine(input: string): string[] {

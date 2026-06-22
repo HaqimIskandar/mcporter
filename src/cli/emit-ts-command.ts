@@ -259,7 +259,7 @@ async function writeFile(targetPath: string, contents: string): Promise<void> {
 function computeImportPath(fromPath: string, typesPath: string): string {
   const fromDir = path.dirname(fromPath);
   const relative = path.relative(fromDir, typesPath).replace(/\\/g, '/');
-  const withoutExt = relative.replace(/\.[^.]+$/, '');
+  const withoutExt = relative.endsWith('.d.ts') ? relative.slice(0, -5) : relative.replace(/\.[^.]+$/, '');
   if (withoutExt.startsWith('.')) {
     return withoutExt;
   }

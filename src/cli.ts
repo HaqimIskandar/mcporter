@@ -239,16 +239,16 @@ export async function runCli(argv: string[]): Promise<void> {
       : null;
   const runtime = createKeepAliveRuntime(baseRuntime, { daemonClient, keepAliveServers });
 
-  const inference = inferCommandRouting(command, args, runtime.getDefinitions());
-  if (inference.kind === 'abort') {
-    process.exitCode = inference.exitCode;
-    return;
-  }
-  const resolvedCommand = inference.command;
-  const resolvedArgs = inference.args;
-
   let primaryError: unknown;
   try {
+    const inference = inferCommandRouting(command, args, runtime.getDefinitions());
+    if (inference.kind === 'abort') {
+      process.exitCode = inference.exitCode;
+      return;
+    }
+    const resolvedCommand = inference.command;
+    const resolvedArgs = inference.args;
+
     if (resolvedCommand === 'list') {
       if (consumeHelpTokens(resolvedArgs)) {
         const { printListHelp } = await import('./cli/list-command.js');
@@ -308,14 +308,15 @@ export async function runCli(argv: string[]): Promise<void> {
       await importedHandleResource(runtime, resolvedArgs);
       return;
     }
+
+    printHelp(`Unknown command '${resolvedCommand}'.`);
+    process.exit(1);
   } catch (error) {
     primaryError = error;
     throw error;
   } finally {
     await closeRuntimeAfterCommand(runtime, { suppressReplayCloseError: primaryError !== undefined });
   }
-  printHelp(`Unknown command '${resolvedCommand}'.`);
-  process.exit(1);
 }
 
 async function closeRuntimeAfterCommand(

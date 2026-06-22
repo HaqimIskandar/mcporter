@@ -101,6 +101,10 @@ describe('emit-ts templates', () => {
     expect(source).toContain('wrapCallResult');
     expect(source).toContain('proxy.listComments');
   });
+
+  it('does not leave a .d suffix when importing generated declaration files', () => {
+    expect(emitTsTestInternals.computeImportPath('/tmp/client.ts', '/tmp/client.d.ts')).toBe('./client');
+  });
 });
 
 describe('handleEmitTs', () => {

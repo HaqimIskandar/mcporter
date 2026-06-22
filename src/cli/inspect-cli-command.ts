@@ -93,6 +93,9 @@ function parseInspectFlags(args: string[]): InspectFlags {
   if (!artifactPath) {
     throw new Error('Usage: mcporter inspect-cli <artifact> [--json]');
   }
+  if (args.length > 0) {
+    throw new Error(`Unexpected inspect-cli argument '${args[0]}'.`);
+  }
   return { artifactPath, format };
 }
 

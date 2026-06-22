@@ -74,16 +74,26 @@ export function metadataPathForArtifact(artifactPath: string): string {
 // readCliMetadata loads metadata for a generated CLI artifact, preferring the embedded
 // inspect command and falling back to legacy sidecar files.
 export async function readCliMetadata(artifactPath: string): Promise<CliArtifactMetadata> {
+  let embeddedError: unknown;
+  try {
+    return await readMetadataFromCli(artifactPath);
+  } catch (error) {
+    embeddedError = error;
+  }
+
   const legacyPath = metadataPathForArtifact(artifactPath);
   try {
     const buffer = await fs.readFile(legacyPath, 'utf8');
     return JSON.parse(buffer) as CliArtifactMetadata;
   } catch (error) {
+    if (isErrno(error, 'ENOENT') && embeddedError) {
+      throw embeddedError;
+    }
     if (!isErrno(error, 'ENOENT')) {
       throw error;
     }
   }
-  return await readMetadataFromCli(artifactPath);
+  throw embeddedError;
 }
 
 async function readMetadataFromCli(artifactPath: string): Promise<CliArtifactMetadata> {

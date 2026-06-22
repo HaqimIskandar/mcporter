@@ -266,5 +266,5 @@ function quoteCommandSegment(segment: string): string {
   if (/^[A-Za-z0-9_./:-]+$/.test(segment)) {
     return segment;
   }
-  return JSON.stringify(segment);
+  return `'${segment.replace(/'/g, `'\\''`)}'`;
 }
