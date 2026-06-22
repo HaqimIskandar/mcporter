@@ -34,10 +34,48 @@ async function ensureDistBuilt(): Promise<void> {
 
 async function hasBun(): Promise<boolean> {
   return await new Promise<boolean>((resolve) => {
-    execFile('bun', ['--version'], { cwd: process.cwd(), env: process.env }, (error) => {
+    execFile(process.env.BUN_BIN ?? 'bun', ['--version'], { cwd: process.cwd(), env: process.env }, (error) => {
       resolve(!error);
     });
   });
+}
+
+let bunCompileSupport: Promise<boolean> | undefined;
+
+async function hasRunnableBunCompile(): Promise<boolean> {
+  bunCompileSupport ??= probeRunnableBunCompile();
+  return await bunCompileSupport;
+}
+
+async function probeRunnableBunCompile(): Promise<boolean> {
+  if (!(await hasBun())) {
+    return false;
+  }
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcporter-bun-compile-probe-'));
+  const sourcePath = path.join(tempDir, 'probe.ts');
+  const binaryPath = path.join(tempDir, 'probe');
+  try {
+    await fs.writeFile(sourcePath, 'console.log("mcporter-bun-compile-probe");\n', 'utf8');
+    const bun = process.env.BUN_BIN ?? 'bun';
+    const built = await new Promise<boolean>((resolve) => {
+      execFile(
+        bun,
+        ['build', sourcePath, '--compile', '--outfile', binaryPath],
+        { cwd: tempDir, env: process.env },
+        (error) => resolve(!error)
+      );
+    });
+    if (!built) {
+      return false;
+    }
+    return await new Promise<boolean>((resolve) => {
+      execFile(binaryPath, [], { cwd: tempDir, env: process.env }, (error, stdout) => {
+        resolve(!error && stdout.trim() === 'mcporter-bun-compile-probe');
+      });
+    });
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  }
 }
 
 async function ensureBunSupport(reason: string): Promise<boolean> {
@@ -47,6 +85,17 @@ async function ensureBunSupport(reason: string): Promise<boolean> {
   }
   if (!(await hasBun())) {
     console.warn(`bun not available on this runner; skipping ${reason}.`);
+    return false;
+  }
+  return true;
+}
+
+async function ensureRunnableBunCompile(reason: string): Promise<boolean> {
+  if (!(await ensureBunSupport(reason))) {
+    return false;
+  }
+  if (!(await hasRunnableBunCompile())) {
+    console.warn(`bun-compiled binaries cannot run on this runner; skipping ${reason}.`);
     return false;
   }
   return true;
@@ -566,7 +615,7 @@ await new Promise((resolve) => { transport.onclose = resolve; });
   }, 20000);
 
   it('runs "node dist/cli.js generate-cli --compile" when bun is available', async () => {
-    if (!(await ensureBunSupport('compile integration test'))) {
+    if (!(await ensureRunnableBunCompile('compile integration test'))) {
       return;
     }
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcporter-cli-compile-'));
@@ -616,7 +665,7 @@ await new Promise((resolve) => { transport.onclose = resolve; });
   }, 20000);
 
   it('end-to-end: compiles a "bun" CLI and calls ping', async () => {
-    if (!(await ensureBunSupport('Bun CLI end-to-end test'))) {
+    if (!(await ensureRunnableBunCompile('Bun CLI end-to-end test'))) {
       return;
     }
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcporter-cli-bun-'));
@@ -690,7 +739,7 @@ await new Promise((resolve) => { transport.onclose = resolve; });
   }, 30000);
 
   it('runs "node dist/cli.js generate-cli --compile" using the Bun bundler by default', async () => {
-    if (!(await ensureBunSupport('Bun bundler compile integration test'))) {
+    if (!(await ensureRunnableBunCompile('Bun bundler compile integration test'))) {
       return;
     }
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcporter-cli-compile-bun-'));
@@ -739,7 +788,7 @@ await new Promise((resolve) => { transport.onclose = resolve; });
   }, 20000);
 
   it('accepts inline stdio commands (e.g., "npx -y chrome-devtools-mcp@latest") when compiling', async () => {
-    if (!(await ensureBunSupport('inline stdio compile integration test'))) {
+    if (!(await ensureRunnableBunCompile('inline stdio compile integration test'))) {
       return;
     }
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcporter-inline-stdio-'));
@@ -884,7 +933,7 @@ await new Promise((resolve) => { transport.onclose = resolve; });
       console.warn('set MCPORTER_STANDALONE_BINARY_TEST=1 to run standalone Bun release binary smoke');
       return;
     }
-    if (!(await ensureBunSupport('standalone Bun release binary smoke'))) {
+    if (!(await ensureRunnableBunCompile('standalone Bun release binary smoke'))) {
       return;
     }
     await new Promise<void>((resolve, reject) => {

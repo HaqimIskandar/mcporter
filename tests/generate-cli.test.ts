@@ -203,9 +203,9 @@ describeGenerateCli('generateCli', () => {
     });
     await fs.mkdir(path.join(tmpDir, 'schema-cache'), { recursive: true });
     const exec = await import('node:child_process');
-    const bunAvailable = await hasBun(exec);
+    const bunAvailable = await hasRunnableBunCompile(exec);
     if (!bunAvailable) {
-      console.warn('bun is not available on this runner; skipping compilation checks.');
+      console.warn('bun-compiled binaries cannot run on this runner; skipping compilation checks.');
       return;
     }
     await ensureDistBuilt();
@@ -890,4 +890,39 @@ async function hasBun(exec: typeof import('node:child_process')) {
       resolve(!error);
     });
   });
+}
+
+let bunCompileSupport: Promise<boolean> | undefined;
+
+async function hasRunnableBunCompile(exec: typeof import('node:child_process')) {
+  bunCompileSupport ??= probeRunnableBunCompile(exec);
+  return await bunCompileSupport;
+}
+
+async function probeRunnableBunCompile(exec: typeof import('node:child_process')) {
+  if (!(await hasBun(exec))) {
+    return false;
+  }
+  const tempDir = await fs.mkdtemp(path.join(tmpDir, 'bun-compile-probe-'));
+  const sourcePath = path.join(tempDir, 'probe.ts');
+  const binaryPath = path.join(tempDir, 'probe');
+  try {
+    await fs.writeFile(sourcePath, 'console.log("mcporter-bun-compile-probe");\n', 'utf8');
+    const bun = process.env.BUN_BIN ?? 'bun';
+    const built = await new Promise<boolean>((resolve) => {
+      exec.execFile(bun, ['build', sourcePath, '--compile', '--outfile', binaryPath], execOptions(), (error) =>
+        resolve(!error)
+      );
+    });
+    if (!built) {
+      return false;
+    }
+    return await new Promise<boolean>((resolve) => {
+      exec.execFile(binaryPath, [], execOptions(), (error, stdout) => {
+        resolve(!error && stdout.trim() === 'mcporter-bun-compile-probe');
+      });
+    });
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  }
 }
