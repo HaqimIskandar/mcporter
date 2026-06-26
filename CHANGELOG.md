@@ -1,5 +1,11 @@
 # mcporter Changelog
 
+## [0.12.2] - Unreleased
+
+### CLI
+
+- Preserve replacement daemon socket and metadata ownership while a superseded daemon shuts down, preventing repeated keep-alive restarts and Chrome remote-debugging permission prompts.
+
 ## [0.12.1] - 2026-06-18
 
 - Add `key=@path` and `--key @path` call arguments for exact UTF-8 file values, with `@@` escaping for literal leading `@`. (Issue #212, thanks @andr-ec)
