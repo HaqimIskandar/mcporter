@@ -1,5 +1,9 @@
 # mcporter Changelog
 
+## [0.12.4] - Unreleased
+
+- Nothing yet.
+
 ## [0.12.3] - 2026-07-01
 
 ### CLI
