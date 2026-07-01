@@ -1,10 +1,10 @@
 # mcporter Changelog
 
-## [0.12.3] - Unreleased
+## [0.12.3] - 2026-07-01
 
 ### CLI
 
-- Render list signatures and call examples from array item schemas, keeping number, boolean, object, and unknown arrays type-correct. (Issue #221, thanks @VincXiong)
+- Fix list signatures and call examples for typed arrays, keeping number, boolean, object, and unknown array values type-correct. (Issue #221, thanks @VincXiong)
 
 ### Tooling / Dependencies
 
